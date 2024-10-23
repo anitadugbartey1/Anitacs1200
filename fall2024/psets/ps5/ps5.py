@@ -1,4 +1,5 @@
 from itertools import product, combinations
+from collections import deque
 
 '''
 Before you start: Read the README and the Graph implementation below.
@@ -79,7 +80,7 @@ class Graph:
         return True
 
 '''
-    Introduction: We've implemented exhaustive search, and the Bron Kerbosch algorithm for you below.
+    Introduction: We've implemented exhaustive search for you below.
 
     You don't need to implement any extra code for this part.
 '''
@@ -97,44 +98,6 @@ def exhaustive_search_coloring(G, k=3):
     # If no valid coloring found, reset colors and return None
     G.reset_colors()
     return None
-
-'''
-IMPORTANT: get_maximal_isets(G) returns a *generator* of the maximal independent sets, not a list
-           This means that instead of calculating all maximal isets at once, it spits them out one
-           by one. One thing you could do is just turn that into a regular list, ie:
-
-               isets = list(get_maximal_isets(G))
-
-           And this will let the helper function generate all isets and toss them into a list.
-           However, that might be inefficient in special cases where the first iset is enough to
-           give you a solution (can you think of a graph where this is the case?). Therefore, it
-           might be better to consider something like the following:
-
-               for iset in get_maximal_isets(G):
-                   do_something_with_iset(iset)
-
-           Keep this in mind if you see that your code is timing out on the test cases - it might
-           mean you need to use this helper function more intelligently.
-'''
-
-# Given an instance of the Graph class G, returns a generator of all maximal independent sets in G
-# Uses helper function impelementing Bron-Kerbosch algorithm
-def get_maximal_isets(G):
-    yield from bron_kerbosch_max_indep_set(G, set(), set(range(G.N)), set())
-
-#Bron-Kerbosch algorithm for finding all maximal independent sets in a graph
-def bron_kerbosch_max_indep_set(G, R, P, X):
-    if len(P)==0 and len(X)==0:
-        yield R.copy()
-    
-    for vertex in P.copy():
-        neighbors = set(G.edges[vertex]).union({vertex})
-        new_P = P.intersection(set(range(G.N)).difference(neighbors))
-        new_X = X.intersection(set(range(G.N)).difference(neighbors))
-        yield from bron_kerbosch_max_indep_set(G, R.union({vertex}), new_P, new_X)
-        
-        P.remove(vertex)
-        X.add(vertex)
 
 
 '''
@@ -167,16 +130,60 @@ def bfs_2_coloring(G, precolored_nodes=None):
     
     # TODO: Complete this function by implementing two-coloring using the colors 0 and 1.
     # If there is no valid coloring, reset all the colors to None using G.reset_colors()
-    
-    G.reset_colors()
-    return None
+    # Initialize a queue for BFS
+    queue = deque()
 
+    # Start BFS from every unvisited node
+    for start_node in range(G.N):
+        if start_node not in visited:
+            queue.append(start_node)
+            G.colors[start_node] = 0  # Color the start node with 0
 
+            while queue:
+                current_node = queue.popleft()
+                visited.add(current_node)
+
+                for neighbor in G.edges[current_node]:
+                    if neighbor not in visited:
+                        # Color the neighbor with opposite color
+                        G.colors[neighbor] = 1 - G.colors[current_node]
+                        queue.append(neighbor)
+                    elif G.colors[neighbor] == G.colors[current_node]:
+                        # If the neighbor is colored and has the same color as v, reset all colors and return None
+                        G.reset_colors()
+                        return None
+
+    return G.colors
+'''
+    Part B: Implement is_independent_set.
+'''
+
+# Given an instance of the Graph class G and a subset of precolored nodes,
+# Checks if subset is an independent set in G 
+def is_independent_set(G, subset):
+    # TODO: Complete this function
+    for node in subset:
+        # Check if any two nodes in the subset are adjacent
+        for neighbor in G.edges[node]:
+            if neighbor in subset:
+                return False
+    return True
 
 '''
-    Part B: Implement the 3-coloring algorithm using the Bron-Kerbosch algorithm and BFS.
+    Part C: Implement the 3-coloring algorithm from the sender receiver exercise.
     
-    Make sure to call the bfs_2_coloring function you implemented!
+    Make sure to call the bfs_2_coloring and is_independent_set functions that you already implemented!
+
+    Hint 1: You will want to use the Python `combinations` function from the itertools library
+    to enumerate all possible independent sets. Remember that each element of combinations is a tuple,
+    so you may need to convert it to a list.
+
+    Hint 2: Python itertools functions compute their results lazily, which means that they only
+    calculate each element as the program requests it. This saves time and space, since it
+    doesn't need to store the entire list of combinations up front. You should NOT try to convert the result
+    of the entire combinations call to a list, since that will force Python to precompute everything.
+    Instead, you should iterate over them in a for loop, which will maintain the lazy behavior we want.
+    See the call to "product" in exhaustive_search for an example.
 
     When you're finished, check your work by running python3 -m ps5_color_tests 3.
     Don't worry if some of your tests time out: that is expected.
@@ -187,7 +194,13 @@ def bfs_2_coloring(G, precolored_nodes=None):
 # If no coloring is possible, resets all of G's colors to None and returns None.
 def iset_bfs_3_coloring(G):
     # TODO: Complete this function.
-
+    N = G.N
+    for r in range(N//3 + 1):
+        for independent_set in combinations(range(N), r):
+            if is_independent_set(G, independent_set):
+                coloring = bfs_2_coloring(G, precolored_nodes=independent_set)
+                if coloring is not None:
+                    return coloring
     G.reset_colors()
     return None
 
